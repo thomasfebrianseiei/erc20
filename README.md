@@ -1,6 +1,120 @@
 
 # SecureToken ERC-20 Smart Contract
 
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+contract SecureToken {
+    string public name = "SecureToken";
+    string public symbol = "STKN";
+    uint8 public decimals = 18;
+    uint256 public totalSupply;
+
+    mapping(address => uint256) public balanceOf;
+    mapping(address => mapping(address => uint256)) public allowance;
+
+    address public owner;
+    address public newOwner;
+    bool public paused = false;
+
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+    event Paused(address account);
+    event Unpaused(address account);
+    event Burn(address indexed burner, uint256 value);
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Not the contract owner");
+        _;
+    }
+
+    modifier whenNotPaused() {
+        require(!paused, "Contract is paused");
+        _;
+    }
+
+    modifier whenPaused() {
+        require(paused, "Contract is not paused");
+        _;
+    }
+
+    constructor(uint256 _initialSupply) {
+        owner = msg.sender;
+        totalSupply = _initialSupply * (10 ** uint256(decimals));
+        balanceOf[msg.sender] = totalSupply;
+    }
+
+    function transfer(address _to, uint256 _value) public whenNotPaused returns (bool success) {
+        require(_to != address(0), "Invalid address");
+        require(balanceOf[msg.sender] >= _value, "Insufficient balance");
+        balanceOf[msg.sender] -= _value;
+        balanceOf[_to] += _value;
+        emit Transfer(msg.sender, _to, _value);
+        return true;
+    }
+
+    function approve(address _spender, uint256 _value) public whenNotPaused returns (bool success) {
+        allowance[msg.sender][_spender] = _value;
+        emit Approval(msg.sender, _spender, _value);
+        return true;
+    }
+
+    function transferFrom(address _from, address _to, uint256 _value) public whenNotPaused returns (bool success) {
+        require(_from != address(0), "Invalid from address");
+        require(_to != address(0), "Invalid to address");
+        require(balanceOf[_from] >= _value, "Insufficient balance");
+        require(allowance[_from][msg.sender] >= _value, "Allowance exceeded");
+        balanceOf[_from] -= _value;
+        balanceOf[_to] += _value;
+        allowance[_from][msg.sender] -= _value;
+        emit Transfer(_from, _to, _value);
+        return true;
+    }
+
+    function burn(uint256 _value) public whenNotPaused {
+        require(balanceOf[msg.sender] >= _value, "Insufficient balance");
+        totalSupply -= _value;
+        balanceOf[msg.sender] -= _value;
+        emit Burn(msg.sender, _value);
+    }
+
+    function pause() public onlyOwner whenNotPaused {
+        paused = true;
+        emit Paused(msg.sender);
+    }
+
+    function unpause() public onlyOwner whenPaused {
+        paused = false;
+        emit Unpaused(msg.sender);
+    }
+
+    function transferOwnership(address _newOwner) public onlyOwner {
+        require(_newOwner != address(0), "Invalid new owner address");
+        newOwner = _newOwner;
+    }
+
+    function acceptOwnership() public {
+        require(msg.sender == newOwner, "Not the new owner");
+        emit OwnershipTransferred(owner, newOwner);
+        owner = newOwner;
+        newOwner = address(0);
+    }
+
+    function recoverERC20(address tokenAddress, uint256 tokenAmount) public onlyOwner {
+        require(tokenAddress != address(this), "Cannot recover own tokens");
+        IERC20(tokenAddress).transfer(owner, tokenAmount);
+    }
+
+    // Interface for interacting with other ERC-20 tokens
+    interface IERC20 {
+        function transfer(address to, uint256 value) external returns (bool);
+    }
+}
+
+```
+
 ## Overview
 The `SecureToken` contract is an implementation of the ERC-20 standard on the Ethereum blockchain. It includes several additional features for enhanced security and functionality, including the ability to pause the contract, burn tokens, transfer ownership, and recover mistakenly sent ERC-20 tokens.
 
